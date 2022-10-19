@@ -28,7 +28,56 @@ def build_validation_result(is_valid, violated_slot, message_content):
         "message": {"contentType": "PlainText", "content": message_content},
     }
 
+# User input starts here.
 
+def validate_data(first_name, age, investment_amount, risk_level, intent_request):
+    """
+    Validates the data provided by the user.
+    """
+    
+    # Validate the user is between 0 and 65 years old.
+    
+    if age is not None:
+        age = parse_int(age)
+        if age <= 0:
+            return build_validation_result(
+                False,
+                "age",
+                "Even though you might be in the womb, you still need to be in this 3D world to invest. "
+                "Please wait for your birth day, then try again.",
+            )
+        elif age >= 65:
+            return build_validation_result(
+                False,
+                "age",
+                "You can already retire, hopefully this isn't your first attempt at investing for retirement. "
+                "This strategy isn't for you. Good luck.",
+            )
+
+    # Validate the investment amount is at least $5,000.
+    
+    if investment_amount is not None:
+        investment_amount = parse_int(investment_amount)
+        if investment_amount < 5000:
+            return build_validation_result(
+                False,
+                "investmentAmount",
+                "This investment portfolio is for whales, less than $5,000 won't cut it.",
+            )
+            
+    # Validate the risk level from the user.
+    
+    if risk_level is not None:
+        if risk_level is not ["Low", "Medium", "High"]:
+            return build_validation_result(
+                False,
+                "riskLevel",
+                "Please type either 'None', 'Low', 'Medium', or 'High'."
+            )
+            
+    # If age, investment_amount, and risk_level are valid, a True is the result.        
+    return build_validation_result(True, None, None)
+    
 ### Dialog Actions Helper Functions ###
 def get_slots(intent_request):
     """
@@ -126,64 +175,60 @@ def recommend_portfolio(intent_request):
     risk_level = get_slots(intent_request)["riskLevel"]
     source = intent_request["invocationSource"]
 
-def validate_data(first_name, age, investment_amount, risk_level, intent_request)
-    """
-    Validates the data provided by the user.
-    """
+            
+    # # Output appropriate suggestions for different risk levels.
     
-    # Validate the user is between 0 and 65 years old.
-    
-    if age is not None:
-        age = parse_int(age)
-        if age <= 0:
-            return build_validation_result(
-                False,
-                "age",
-                "Even though you might be in the womb, you still need to be in this 3D world to invest. "
-                "Please wait for your birth day, then try again.",
+    if source == "DialogCodeHook":
+        # Provides basic validation using the input slots.
+        
+        # Gets all of the slots.
+        
+        slots = get_slots(intent_request)
+        
+        # Validates user input via validate_data.
+        
+        validation_result = validate_data(age, investment_amount, risk_level, intent_request)
+        
+        # If the input value is invalid, reask to enter input correctly.
+        
+        if not validation_result["isValid"]:
+            slots[validation_result["violatedSlot"]] = None
+            
+            # Asks for new data to be entered and valid.
+            
+            return elicit_slot(
+                intent_request["sessionAttributes"],
+                intent_request["currentIntent"]["name"],
+                slots,
+                validation_result["violatedSlot"],
+                validation_result["message"],
             )
-        elif age >= 65:
-            return build_validation_result(
-                False,
-                "age",
-                "You can already retire, hopefully this isn't your first attempt at investing for retirement. "
-                "This strategy isn't for you. Good luck.",
-            )
+            
+         # Fetch current session attributes
+         
+        output_session_attributes = intent_request["sessionAttributes"]
 
-    # Validate the investment amount is at least $5,000.
-    
-    if investment_amount is not None:
-        investment_amount = parse_int(investment_amount)
-        if investment_amount < 5000:
-            return build_validation_result(
-                False,
-                "investmentAmount",
-                "This investment portfolio is for whales, less than $5,000 won't cut it.",
-            )
-            
-    # Validate the risk level from the user.
-    
-    if risk_level is not None:
-        if risk_level is not ["Low", "Medium", "High"]:
-            return build_validation_result(
-                False,
-                "riskLevel",
-                "Please type either 'None', 'Low', 'Medium', or 'High'."
-            )
-            
-    # If age, investment_amount, and risk_level are valid, a True is the result.        
-    return build_validation_result(True, None, None)
-            
-    # Output appropriate suggestions for different risk levels.
-    
-        if risk_level = "None":
+        # With valid responses, we make suggestions for user based on input.
+        
+        return delegate(output_session_attributes, get_slots(intent_request))
+        
+        if risk_level == "None":
             print("100% bonds (AGG), 0% equities (SPY)")
-        if risk_level = "Low":
+        elif risk_level == "Low":
             print("60% bonds (AAG), 40% equities (SPY)")
-        if risk_level = "Medium":
+        elif risk_level == "Medium":
             print("40% bonds (AGG), 60% equities (SPY)")
-        if risk_level = "High":
+        elif risk_level == "High":
             print("20% bonds (AGG), 80% equities (SPY)")
+            
+        return close(
+            intent_request["sessionAttributes"],
+            "Fulfilled",
+            {
+                "contentType": "PlainText",
+                "content": """Thank you, Goodbye.""",
+            },
+        )
             
 ### Intents Dispatcher ###
 def dispatch(intent_request):
